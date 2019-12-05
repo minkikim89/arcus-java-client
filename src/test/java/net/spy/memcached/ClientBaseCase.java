@@ -85,6 +85,9 @@ public abstract class ClientBaseCase extends TestCase {
         @Override
         public MemcachedConnection createConnection(
                 List<InetSocketAddress> addrs) throws IOException {
+          System.out.println("---------------------------------------------");
+          System.out.println(addrs);
+          System.out.println("---------------------------------------------");
           return new MemcachedConnection(getReadBufSize(), this, addrs,
                   getInitialObservers(), getFailureMode(), getOperationFactory());
         }
