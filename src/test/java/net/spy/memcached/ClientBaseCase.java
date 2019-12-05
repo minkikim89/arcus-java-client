@@ -43,7 +43,7 @@ public abstract class ClientBaseCase extends TestCase {
 
   protected static String ARCUS_HOST = System
           .getProperty("ARCUS_HOST",
-                  "127.0.0.1:11212");
+                  "127.0.0.1:11211");
 
   protected static boolean USE_ZK = Boolean.valueOf(System.getProperty(
           "USE_ZK", "false"));
@@ -85,9 +85,6 @@ public abstract class ClientBaseCase extends TestCase {
         @Override
         public MemcachedConnection createConnection(
                 List<InetSocketAddress> addrs) throws IOException {
-          System.out.println("---------------------------------------------");
-          System.out.println(addrs);
-          System.out.println("---------------------------------------------");
           return new MemcachedConnection(getReadBufSize(), this, addrs,
                   getInitialObservers(), getFailureMode(), getOperationFactory());
         }
