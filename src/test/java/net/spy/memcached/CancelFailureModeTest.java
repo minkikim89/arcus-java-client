@@ -9,6 +9,9 @@ public class CancelFailureModeTest extends ClientBaseCase {
   @Override
   protected void setUp() throws Exception {
     serverList = ARCUS_HOST + " 127.0.0.1:11311";
+    System.out.println("[!!!!!!!!!!!!!!!!!!!!!!]");
+    System.out.println(serverList);
+    System.out.println("[!!!!!!!!!!!!!!!!!!!!!!]");
     super.setUp();
   }
 
