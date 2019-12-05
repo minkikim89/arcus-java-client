@@ -20,7 +20,7 @@ public class CancelFailureModeTest extends ClientBaseCase {
 
   @Override
   protected void initClient(ConnectionFactory cf) throws Exception {
-    System.out.println(serverList);
+    System.err.println(serverList);
     client = new MemcachedClient(cf, AddrUtil.getAddresses(serverList));
   }
 
