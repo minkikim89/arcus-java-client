@@ -25,7 +25,7 @@ public class LoaderTest extends SpyObject implements Runnable {
   public void init() throws Exception {
     client = new MemcachedClient(new ConnectionFactoryBuilder()
             .setProtocol(Protocol.BINARY).setOpQueueMaxBlockTime(1000)
-            .build(), AddrUtil.getAddresses("localhost:11211"));
+            .build(), AddrUtil.getAddresses("localhost:11212"));
   }
 
   public void shutdown() throws Exception {
