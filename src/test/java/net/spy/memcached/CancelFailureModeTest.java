@@ -20,7 +20,6 @@ public class CancelFailureModeTest extends ClientBaseCase {
 
   @Override
   protected void initClient(ConnectionFactory cf) throws Exception {
-    System.err.println(serverList);
     client = new MemcachedClient(cf, AddrUtil.getAddresses(serverList));
   }
 
@@ -40,6 +39,9 @@ public class CancelFailureModeTest extends ClientBaseCase {
   }
 
   public void testQueueingToDownServer() throws Exception {
+    System.out.println("[!!!!!!!!!!!!!!!!!!!!!!]");
+    System.out.println(serverList);
+    System.out.println("[!!!!!!!!!!!!!!!!!!!!!!]");
     Future<Boolean> f = client.add("someKey", 0, "some object");
     try {
       boolean b = f.get();
