@@ -43,7 +43,7 @@ public abstract class ClientBaseCase extends TestCase {
 
   protected static String ARCUS_HOST = System
           .getProperty("ARCUS_HOST",
-                  "127.0.0.1:11211");
+                  "127.0.0.1:11212");
 
   protected static boolean USE_ZK = Boolean.valueOf(System.getProperty(
           "USE_ZK", "false"));
