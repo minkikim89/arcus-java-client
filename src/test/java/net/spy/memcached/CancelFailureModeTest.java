@@ -15,7 +15,8 @@ public class CancelFailureModeTest extends ClientBaseCase {
   @Override
   protected void tearDown() throws Exception {
     serverList = ARCUS_HOST;
-    super.tearDown();
+    // override teardown to avoid the flush phase
+    client.shutdown();
   }
 
   @Override
