@@ -20,24 +20,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -122,27 +107,9 @@ import net.spy.memcached.internal.CollectionFuture;
 import net.spy.memcached.internal.CollectionGetBulkFuture;
 import net.spy.memcached.internal.OperationFuture;
 import net.spy.memcached.internal.SMGetFuture;
-import net.spy.memcached.ops.BTreeFindPositionOperation;
-import net.spy.memcached.ops.BTreeFindPositionWithGetOperation;
-import net.spy.memcached.ops.BTreeGetBulkOperation;
-import net.spy.memcached.ops.BTreeGetByPositionOperation;
-import net.spy.memcached.ops.BTreeSortMergeGetOperation;
-import net.spy.memcached.ops.BTreeSortMergeGetOperationOld;
-import net.spy.memcached.ops.BTreeInsertAndGetOperation;
-import net.spy.memcached.ops.CollectionBulkInsertOperation;
-import net.spy.memcached.ops.CollectionGetOperation;
-import net.spy.memcached.ops.CollectionOperationStatus;
-import net.spy.memcached.ops.CollectionPipedExistOperation;
-import net.spy.memcached.ops.CollectionPipedInsertOperation;
-import net.spy.memcached.ops.CollectionPipedUpdateOperation;
-import net.spy.memcached.ops.GetAttrOperation;
-import net.spy.memcached.ops.Mutator;
-import net.spy.memcached.ops.Operation;
-import net.spy.memcached.ops.OperationCallback;
-import net.spy.memcached.ops.OperationState;
-import net.spy.memcached.ops.OperationStatus;
-import net.spy.memcached.ops.StoreType;
+import net.spy.memcached.ops.*;
 import net.spy.memcached.plugin.FrontCacheMemcachedClient;
+import net.spy.memcached.plugin.LocalCacheManager;
 import net.spy.memcached.transcoders.CollectionTranscoder;
 import net.spy.memcached.transcoders.Transcoder;
 import net.spy.memcached.util.BTreeUtil;
@@ -1237,7 +1204,92 @@ public class ArcusClient extends FrontCacheMemcachedClient implements ArcusClien
     } else if (key.isEmpty()) {
       throw new IllegalArgumentException("Key list is empty.");
     }
-    return bulkService.setBulk(key, exp, o, tc, new ArcusClient[]{this});
+    final Map<String, CollectionOperationStatus> errorList = new HashMap<String, CollectionOperationStatus>();
+
+    final ConcurrentLinkedQueue<Operation> ops = new ConcurrentLinkedQueue<Operation>();
+
+    final CountDownLatch latch = new CountDownLatch(key.size());
+
+    for (final String k : key) {
+
+      CachedData co = transcoder.encode(o);
+      Operation op = opFact.store(StoreType.set, k, co.getFlags(),
+              exp, co.getData(), new OperationCallback() {
+                public void receivedStatus(OperationStatus val) {
+                  if (!val.isSuccess())
+                    errorList.put(k, new CollectionOperationStatus(false, String
+                            .valueOf(val.isSuccess()), CollectionResponse.NOT_FOUND));
+                }
+
+                public void complete() {
+                  latch.countDown();
+                }
+              });
+      ops.add(op);
+      addOp(k, op);
+    }
+
+    // return future
+    return new Future<Map<String, CollectionOperationStatus>>() {
+
+    };
+    return new CollectionFuture<Map<String, CollectionOperationStatus>>(
+            latch, operationTimeout) {
+
+      @Override
+      public boolean cancel(boolean ign) {
+        boolean rv = false;
+        for (Operation op : ops) {
+          op.cancel("by application.");
+          rv |= op.getState() == OperationState.WRITE_QUEUED;
+        }
+        return rv;
+      }
+
+      @Override
+      public boolean isCancelled() {
+        for (Operation op : ops) {
+          if (op.isCancelled())
+            return true;
+        }
+        return false;
+      }
+
+      @Override
+      public Map<String, CollectionOperationStatus> get(long duration,
+                                                        TimeUnit units) throws InterruptedException,
+              TimeoutException, ExecutionException {
+        if (!latch.await(duration, units)) {
+          for (Operation op : ops) {
+            MemcachedConnection.opTimedOut(op);
+          }
+          throw new CheckedOperationTimeoutException(
+                  "Timed out waiting for bulk operation >" + duration + " " + units, ops);
+        } else {
+          // continuous timeout counter will be reset
+          for (Operation op : ops) {
+            MemcachedConnection.opSucceeded(op);
+          }
+        }
+
+        for (Operation op : ops) {
+          if (op != null && op.hasErrored()) {
+            throw new ExecutionException(op.getException());
+          }
+
+          if (op != null && op.isCancelled()) {
+            throw new ExecutionException(new RuntimeException(op.getCancelCause()));
+          }
+        }
+
+        return failedResult;
+      }
+
+      @Override
+      public CollectionOperationStatus getOperationStatus() {
+        return null;
+      }
+    };
   }
 
   /* (non-Javadoc)
